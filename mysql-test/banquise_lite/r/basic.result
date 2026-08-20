@@ -1,0 +1,57 @@
+SELECT PLUGIN_NAME, PLUGIN_STATUS, PLUGIN_TYPE
+FROM INFORMATION_SCHEMA.PLUGINS
+WHERE PLUGIN_NAME = 'BANQUISE_CATALOG';
+PLUGIN_NAME	PLUGIN_STATUS	PLUGIN_TYPE
+BANQUISE_CATALOG	ACTIVE	INFORMATION SCHEMA
+SHOW COLUMNS FROM INFORMATION_SCHEMA.BANQUISE_CATALOG;
+Field	Type	Null	Key	Default	Extra
+NAME	varchar(128)	NO		NULL	
+REPOSITORY	varchar(1024)	NO		NULL	
+PLUGIN_VERSION	varchar(64)	NO		NULL	
+INSTALLED	varchar(3)	NO		NULL	
+LOADED	varchar(3)	NO		NULL	
+INSTALLED_VERSION	varchar(255)	NO		NULL	
+PLUGIN_TYPES	varchar(1024)	NO		NULL	
+LICENSE	varchar(255)	NO		NULL	
+MATURITY	varchar(255)	NO		NULL	
+DESCRIPTION	varchar(2048)	NO		NULL	
+MARIADB_VERSION	varchar(64)	NO		NULL	
+ARCHITECTURE	varchar(64)	NO		NULL	
+SONAME	varchar(128)	NO		NULL	
+DOWNLOAD_URL	varchar(2048)	NO		NULL	
+SHA256	varchar(64)	NO		NULL	
+ARCHIVE_TYPE	varchar(16)	NO		NULL	
+ARCHIVE_MEMBER	varchar(1024)	NO		NULL	
+DEPENDENCIES	varchar(1024)	NO		NULL	
+COMPATIBLE	varchar(3)	NO		NULL	
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.BANQUISE_CATALOG;
+COUNT(*)
+0
+SHOW STATUS LIKE 'banquise_lite_message';
+Variable_name	Value
+Banquise_lite_message	Ready; automatic catalog refresh is disabled
+SHOW VARIABLES LIKE 'banquise_lite_%';
+Variable_name	Value
+banquise_lite_auto_refresh	OFF
+banquise_lite_catalog_url	https://lefred.be/wp-content/uploads/catalog.json
+banquise_lite_connect_timeout	10
+banquise_lite_refresh	OFF
+banquise_lite_transfer_timeout	120
+banquise_lite_trusted_key_file	/etc/banquise/catalog.pub
+SELECT PLUGIN_NAME, PLUGIN_TYPE
+FROM INFORMATION_SCHEMA.PLUGINS
+WHERE PLUGIN_NAME LIKE 'banquise_lite_%'
+  ORDER BY PLUGIN_NAME;
+PLUGIN_NAME	PLUGIN_TYPE
+banquise_lite_install	FUNCTION
+banquise_lite_uninstall	FUNCTION
+banquise_lite_update	FUNCTION
+SELECT banquise_lite_install('vmstat');
+ERROR HY000: BANQUISE_LITE: No compatible catalog entry named 'vmstat'
+SHOW STATUS LIKE 'banquise_lite_message';
+Variable_name	Value
+Banquise_lite_message	Install failed: No compatible catalog entry named 'vmstat'
+SELECT banquise_lite_update('vmstat');
+ERROR HY000: BANQUISE_LITE: No compatible catalog entry named 'vmstat'
+SELECT banquise_lite_uninstall('vmstat');
+ERROR HY000: BANQUISE_LITE: No compatible catalog entry named 'vmstat'
