@@ -37,7 +37,7 @@ banquise_lite_catalog_url	https://lefred.be/wp-content/uploads/catalog.json
 banquise_lite_connect_timeout	10
 banquise_lite_refresh	OFF
 banquise_lite_transfer_timeout	120
-banquise_lite_trusted_key_file	/etc/banquise/catalog.pub
+banquise_lite_trusted_key_file	/etc/mariadb/banquise/catalog.pub
 SELECT PLUGIN_NAME, PLUGIN_TYPE
 FROM INFORMATION_SCHEMA.PLUGINS
 WHERE PLUGIN_NAME LIKE 'banquise_lite_%'
