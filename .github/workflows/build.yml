@@ -1,0 +1,26 @@
+name: Build and package BANQUISE_LITE plugin
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: lefred/mariadb-plugin-ci/.github/workflows/build-plugin.yml@v1
+    with:
+      plugin_name: banquise-lite
+      plugin_directory: banquise_lite
+      build_target: banquise_lite
+      plugin_library: banquise_lite.so
+      cmake_options: -DPLUGIN_CRYPTO_EXTRA=DYNAMIC
+      test_suite: banquise_lite
+      run_tests: ${{ startsWith(github.ref, 'refs/tags/v') }}
