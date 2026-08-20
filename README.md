@@ -1,4 +1,6 @@
-# MariaDB Banquise Lite
+# MariaDB Banquise Lite - mariadb-plugin-banquise-lite
+
+![mariabd-plugin-banquise-lite](logo/banquise_lite_logo.png)
 
 `BANQUISE_LITE` is a MariaDB server plugin that discovers binary
 plugins from a Minisign-authenticated HTTPS JSON catalog, verifies each asset's
@@ -23,10 +25,30 @@ cmake -S . -B build -DPLUGIN_BANQUISE_LITE=DYNAMIC
 cmake --build build --target banquise_lite
 ```
 
+## Installation
+
 Install `banquise_lite.so` into MariaDB's `plugin_dir`, then bootstrap it:
 
 ```sql
 INSTALL SONAME 'banquise_lite';
+
+SELECT plugin_name, plugin_type, plugin_library, plugin_description, plugin_author 
+FROM information_schema.PLUGINS WHERE plugin_library = 'banquise_lite.so' ORDER BY plugin_name;
++-------------------------+--------------------+------------------+-------------------------------------------------------+---------------+
+| plugin_name             | plugin_type        | plugin_library   | plugin_description                                    | plugin_author |
++-------------------------+--------------------+------------------+-------------------------------------------------------+---------------+
+| BANQUISE_CATALOG        | INFORMATION SCHEMA | banquise_lite.so | Standalone signed-catalog browser and installer       | lefred        |
+| BANQUISE_LITE           | DAEMON             | banquise_lite.so | Standalone Banquise signed-catalog service            | lefred        |
+| banquise_lite_install   | FUNCTION           | banquise_lite.so | Download, verify, install and load a catalog plugin   | lefred        |
+| banquise_lite_uninstall | FUNCTION           | banquise_lite.so | Unload and remove an installed catalog plugin         | lefred        |
+| banquise_lite_update    | FUNCTION           | banquise_lite.so | Safely replace and reload an installed catalog plugin | lefred        |
++-------------------------+--------------------+------------------+-------------------------------------------------------+---------------+
+5 rows in set (0.002 sec)
+```
+
+Test it:
+
+```sql
 SELECT * FROM information_schema.BANQUISE_CATALOG;
 ```
 
