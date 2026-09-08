@@ -19,3 +19,12 @@ SHOW STATUS LIKE 'banquise_lite_message';
 SELECT banquise_lite_update('vmstat');
 --error ER_UNKNOWN_ERROR
 SELECT banquise_lite_uninstall('vmstat');
+
+--error ER_UNKNOWN_ERROR
+SELECT banquise_lite_install('vmstat', 'community');
+
+--error ER_UNKNOWN_ERROR
+SELECT banquise_lite_install('vmstat', NULL);
+
+--error ER_UNKNOWN_ERROR
+SELECT banquise_lite_install('vmstat', '');

@@ -1,0 +1,13 @@
+SET GLOBAL banquise_lite_refresh=ON;
+ERROR 42000: Variable 'banquise_lite_refresh' can't be set to the value of 'ON'
+SHOW STATUS LIKE 'banquise_lite_message';
+Variable_name	Value
+Banquise_lite_message	Refresh failed: No named repositories configured; add a [banquise:name] section
+SET GLOBAL banquise_lite_refresh=ON;
+ERROR 42000: Variable 'banquise_lite_refresh' can't be set to the value of 'ON'
+SHOW STATUS LIKE 'banquise_lite_message';
+Variable_name	Value
+Banquise_lite_message	Refresh failed: Repository 'community': Cannot open trusted Minisign key: No such file or directory
+SELECT COUNT(*) FROM information_schema.BANQUISE_CATALOG;
+COUNT(*)
+0

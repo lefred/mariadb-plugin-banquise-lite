@@ -13,6 +13,60 @@ The catalog is a small, auditable file maintained in a GitHub repository. Each
 entry points at another project's release page and at one exact release asset.
 See `catalog.example.json` for the schema.
 
+## Named catalog repositories
+
+Define repositories in any MariaDB option file read by the server, including
+files reached through `!include` or `!includedir`:
+
+```ini
+[banquise:community]
+catalog_url=https://example.org/mariadb/catalog.json
+trusted_key_file=/etc/mariadb/banquise/community.pub
+
+[banquise:internal]
+catalog_url=https://plugins.example.net/catalog.json
+trusted_key_file=/etc/mariadb/banquise/internal.pub
+```
+
+Repository names are case-sensitive and may contain letters, digits, dots,
+underscores, and hyphens (up to 128 characters). Each section requires an HTTPS
+URL and an absolute path to its own trusted Minisign public key. Keys must be
+root-owned and must not be group- or world-writable. Repeated sections merge in
+file order, with later values overriding earlier ones. Included directories
+are read in filename order; only `.cnf` files are considered.
+
+Refresh rereads the sections and verifies each catalog with its configured key:
+
+```sql
+SET GLOBAL banquise_lite_refresh=ON;
+SELECT CATALOG, NAME, PLUGIN_VERSION FROM information_schema.BANQUISE_CATALOG;
+SELECT banquise_lite_install('vmstat', 'community');
+SELECT banquise_lite_update('vmstat', 'community');
+SELECT banquise_lite_uninstall('vmstat', 'community');
+```
+
+The repository argument is optional. If more than one repository offers a
+compatible plugin with the requested name, specify the repository explicitly.
+NULL and empty repository names are rejected. `CATALOG` identifies the configured
+repository; `REPOSITORY` remains the plugin project's source URL.
+
+All repositories must verify before a refresh replaces the current view. A
+failure keeps the previous view and reports the failing repository in the
+status message. No implicit fallback to another publisher occurs.
+
+The server's `--defaults-file`, `--defaults-extra-file`, and `--no-defaults`
+settings are respected. Sections use the exact `[banquise:name]` form regardless
+of `--defaults-group-suffix`. Configuration files are reread from disk, so an
+explicit refresh applies repository edits without restarting MariaDB.
+
+Named `[banquise:name]` sections are required. There is no default catalog and
+no global catalog URL or trusted-key setting. With no named sections, refresh
+fails with a configuration error and performs no catalog downloads.
+
+Installed metadata records the catalog name and asset checksum. An equal version
+is reused only when its stored checksum also matches the selected catalog, so
+repositories publishing different assets under the same version are distinguished.
+
 ## Build
 
 Add this directory below MariaDB's `plugin/` source directory (or symlink it),
@@ -52,29 +106,18 @@ Test it:
 SELECT * FROM information_schema.BANQUISE_CATALOG;
 ```
 
-Before installing the plugin, deploy the catalog publisher's trusted Minisign
-public key at `/etc/banquise/catalog.pub`. Key generation, signing,
-deployment, and rotation are covered in [SIGNING.md](SIGNING.md). The default catalog is
-`https://lefred.be/wp-content/uploads/catalog.json` and is fetched during
-plugin initialization, so the information-schema table is populated as soon as
-`INSTALL SONAME` returns. To use another catalog, configure
-`banquise_lite_catalog_url` before server startup or set it at runtime and refresh:
+Before installing the plugin, configure named repositories and deploy each
+publisher's trusted Minisign public key at its section's `trusted_key_file` path.
+Key generation, signing, deployment, and rotation are covered in
+[SIGNING.md](SIGNING.md). Configured catalogs are fetched during plugin
+initialization. After editing repository sections, refresh with:
 
 ```sql
-SET GLOBAL banquise_lite_catalog_url =
-  'https://example.org/mariadb/catalog.json';
 SET GLOBAL banquise_lite_refresh = ON;
 ```
 
-The detached signature is fetched by appending `.minisig` to the configured
-URL. For the default URL it must therefore be published as
-`catalog.json.minisig`. Configure the read-only trust anchor before server
-startup when it is stored elsewhere:
-
-```ini
-[mariadb]
-banquise_lite_trusted_key_file=/etc/mariadb/banquise/catalog.pub
-```
+The detached signature is fetched by appending `.minisig` to each configured
+catalog URL; a URL ending in `catalog.json` requires `catalog.json.minisig`.
 
 Automatic initialization refresh can be disabled with
 `banquise_lite_auto_refresh=OFF`. A network or catalog error does not prevent the
@@ -153,9 +196,9 @@ appended to successful install and update results, allowing publishers to show
 dependency or activation instructions at the point of action. `description` is
 the discovery-oriented text displayed in the table.
 
-`banquise_lite_update()` compares the installed version with the compatible
-catalog version before making a network request. Equal versions return
-immediately without downloading or changing the plugin.
+`banquise_lite_update()` compares the installed version and stored asset checksum
+with the selected catalog before making a network request. Matching versions
+and checksums return immediately without downloading or changing the plugin.
 
 The checksum must be the 64-hex-character SHA-256 of the release asset. A
 publisher can generate it with:
@@ -164,3 +207,13 @@ publisher can generate it with:
 sha256sum plugin.so
 ```
 
+
+## Tests
+
+Run the `banquise_lite` suite with MariaDB's `mariadb-test-run.pl`.
+The standalone configuration and repository selection tests need only C++11:
+
+```sh
+c++ -std=c++11 -Wall -Wextra -Werror tests/repositories.cc -o /tmp/banquise-repositories-test
+/tmp/banquise-repositories-test
+```

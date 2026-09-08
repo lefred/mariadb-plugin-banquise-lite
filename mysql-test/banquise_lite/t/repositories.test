@@ -1,0 +1,23 @@
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL banquise_lite_refresh=ON;
+SHOW STATUS LIKE 'banquise_lite_message';
+
+--copy_file $MYSQLTEST_VARDIR/my.cnf $MYSQLTEST_VARDIR/my.cnf.banquise-save
+--mkdir $MYSQLTEST_VARDIR/banquise-repos
+--write_file $MYSQLTEST_VARDIR/banquise-repos/community.cnf
+[banquise:community]
+catalog_url=https://example.invalid/catalog.json
+trusted_key_file=/nonexistent/banquise-community.pub
+[banquise:internal]
+catalog_url=https://example.invalid/internal.json
+trusted_key_file=/nonexistent/banquise-internal.pub
+EOF
+--exec echo "!includedir $MYSQLTEST_VARDIR/banquise-repos" >> $MYSQLTEST_VARDIR/my.cnf
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL banquise_lite_refresh=ON;
+SHOW STATUS LIKE 'banquise_lite_message';
+SELECT COUNT(*) FROM information_schema.BANQUISE_CATALOG;
+--remove_file $MYSQLTEST_VARDIR/banquise-repos/community.cnf
+--rmdir $MYSQLTEST_VARDIR/banquise-repos
+--remove_file $MYSQLTEST_VARDIR/my.cnf
+--move_file $MYSQLTEST_VARDIR/my.cnf.banquise-save $MYSQLTEST_VARDIR/my.cnf
