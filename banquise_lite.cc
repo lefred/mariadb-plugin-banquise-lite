@@ -561,6 +561,7 @@ static bool configured_repositories(std::vector<Banquise_repository> *out,
   for (const auto &pair : repos)
   {
     const Banquise_repository &repo= pair.second;
+    if (!repo.enabled) continue;
     if (!https_url(repo.url) || repo.key.empty() || repo.key[0] != '/')
     {
       *error= "Repository '" + repo.name +

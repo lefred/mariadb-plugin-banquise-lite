@@ -15,6 +15,15 @@
 struct Banquise_repository
 {
   std::string name, url, key;
+  bool enabled;
+
+  Banquise_repository(): enabled(true) {}
+  Banquise_repository(const std::string &repository_name,
+                      const std::string &repository_url,
+                      const std::string &repository_key,
+                      bool repository_enabled= true):
+    name(repository_name), url(repository_url), key(repository_key),
+    enabled(repository_enabled) {}
 };
 
 static std::string repo_trim(const std::string &s)
@@ -119,6 +128,18 @@ static bool repo_read_cnf(const std::string &path,
       value= value.substr(1, value.size() - 2);
     if (key == "catalog_url") (*repos)[group].url= value;
     else if (key == "trusted_key_file") (*repos)[group].key= value;
+    else if (key == "enabled")
+    {
+      if (value == "1" || value == "on" || value == "true" || value == "yes")
+        (*repos)[group].enabled= true;
+      else if (value == "0" || value == "off" || value == "false" || value == "no")
+        (*repos)[group].enabled= false;
+      else
+      {
+        *error= "Invalid enabled value in [banquise:" + group + "]: " + value;
+        return false;
+      }
+    }
     else { *error= "Unknown option in [banquise:" + group + "]: " + key; return false; }
   }
   if (file.bad()) { *error= "Error reading repository config: " + path; return false; }

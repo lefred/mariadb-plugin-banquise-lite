@@ -22,10 +22,12 @@ files reached through `!include` or `!includedir`:
 [banquise:community]
 catalog_url=https://example.org/mariadb/catalog.json
 trusted_key_file=/etc/mariadb/banquise/community.pub
+enabled=1
 
 [banquise:internal]
 catalog_url=https://plugins.example.net/catalog.json
 trusted_key_file=/etc/mariadb/banquise/internal.pub
+enabled=0
 ```
 
 Repository names are case-sensitive and may contain letters, digits, dots,
@@ -34,6 +36,11 @@ URL and an absolute path to its own trusted Minisign public key. Keys must be
 root-owned and must not be group- or world-writable. Repeated sections merge in
 file order, with later values overriding earlier ones. Included directories
 are read in filename order; only `.cnf` files are considered.
+
+`enabled` defaults to `1`. Set `enabled=0` to keep a repository configured
+without refreshing it or exposing its entries. Disabled repositories may omit
+or retain their URL and key settings; they become active again after changing
+the value to `1` and refreshing.
 
 Refresh rereads the sections and verifies each catalog with its configured key:
 
