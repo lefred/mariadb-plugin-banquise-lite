@@ -14,11 +14,11 @@
 #include <sql_i_s.h>
 #include <sql_plugin.h>
 #include <mysql/plugin_function.h>
+#include "banquise_crypto.h"
 
 #include <curl/curl.h>
 #include <archive.h>
 #include <archive_entry.h>
-#include <openssl/evp.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -118,8 +118,13 @@ static bool fetch(const std::string &url, size_t limit, std::string *out,
   curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+#ifdef CURLOPT_PROTOCOLS_STR
   curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "https");
   curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "https");
+#else
+  curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS);
+  curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS);
+#endif
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, (long) repo_connect_timeout);
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, (long) repo_transfer_timeout);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
@@ -205,110 +210,6 @@ static bool read_trusted_key(std::string *contents, std::string *error,
     done+= (size_t) n;
   }
   close(fd);
-  return true;
-}
-
-static std::vector<std::string> text_lines(const std::string &text)
-{
-  std::vector<std::string> lines;
-  size_t begin= 0;
-  while (begin < text.size())
-  {
-    size_t end= text.find('\n', begin);
-    if (end == std::string::npos) end= text.size();
-    std::string line= text.substr(begin, end - begin);
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    lines.push_back(line);
-    begin= end + 1;
-  }
-  while (!lines.empty() && lines.back().empty()) lines.pop_back();
-  return lines;
-}
-
-static bool decode_base64(const std::string &input, size_t expected,
-                          std::vector<unsigned char> *output)
-{
-  if (input.empty() || input.size() % 4) return false;
-  output->resize(input.size() / 4 * 3);
-  int n= EVP_DecodeBlock(output->data(),
-                         reinterpret_cast<const unsigned char *>(input.data()),
-                         (int) input.size());
-  if (n < 0) return false;
-  if (!input.empty() && input.back() == '=') --n;
-  if (input.size() > 1 && input[input.size() - 2] == '=') --n;
-  if ((size_t) n != expected) return false;
-  output->resize((size_t) n);
-  return true;
-}
-
-static bool ed25519_verify(const unsigned char public_key[32],
-                           const unsigned char signature[64],
-                           const unsigned char *message, size_t message_len)
-{
-  EVP_PKEY *key= EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL,
-                                             public_key, 32);
-  EVP_MD_CTX *ctx= key ? EVP_MD_CTX_new() : NULL;
-  bool valid= ctx && EVP_DigestVerifyInit(ctx, NULL, NULL, NULL, key) == 1 &&
-    EVP_DigestVerify(ctx, signature, 64, message, message_len) == 1;
-  EVP_MD_CTX_free(ctx);
-  EVP_PKEY_free(key);
-  return valid;
-}
-
-static bool verify_minisign(const std::string &message,
-                            const std::string &signature_text,
-                            const std::string &public_key_text,
-                            std::string *error)
-{
-  const std::string trusted_prefix= "trusted comment: ";
-  std::vector<std::string> key_lines= text_lines(public_key_text);
-  std::vector<std::string> sig_lines= text_lines(signature_text);
-  if (key_lines.size() != 2 || sig_lines.size() != 4 ||
-      key_lines[0].compare(0, 18, "untrusted comment:") != 0 ||
-      sig_lines[0].compare(0, 18, "untrusted comment:") != 0 ||
-      sig_lines[2].compare(0, trusted_prefix.size(), trusted_prefix) != 0)
-  {
-    *error= "Malformed Minisign public key or signature file";
-    return false;
-  }
-  std::vector<unsigned char> key_packet, sig_packet, global_signature;
-  if (!decode_base64(key_lines[1], 42, &key_packet) ||
-      !decode_base64(sig_lines[1], 74, &sig_packet) ||
-      !decode_base64(sig_lines[3], 64, &global_signature))
-  {
-    *error= "Invalid base64 or packet length in Minisign data";
-    return false;
-  }
-  if (key_packet[0] != 'E' || key_packet[1] != 'd' ||
-      sig_packet[0] != 'E' || sig_packet[1] != 'D')
-  {
-    *error= "Unsupported Minisign algorithm (an ED prehashed signature is required)";
-    return false;
-  }
-  if (memcmp(&key_packet[2], &sig_packet[2], 8))
-  {
-    *error= "Minisign signature key ID does not match the trusted key";
-    return false;
-  }
-  unsigned char digest[64];
-  unsigned int digest_len= 0;
-  if (EVP_Digest(message.data(), message.size(), digest, &digest_len,
-                 EVP_blake2b512(), NULL) != 1 || digest_len != sizeof(digest) ||
-      !ed25519_verify(&key_packet[10], &sig_packet[10], digest, sizeof(digest)))
-  {
-    *error= "Catalog Minisign signature is invalid";
-    return false;
-  }
-  std::string trusted_comment= sig_lines[2].substr(trusted_prefix.size());
-  std::vector<unsigned char> global_message(64 + trusted_comment.size());
-  memcpy(global_message.data(), &sig_packet[10], 64);
-  memcpy(global_message.data() + 64, trusted_comment.data(), trusted_comment.size());
-  if (!ed25519_verify(&key_packet[10], global_signature.data(),
-                      global_message.data(), global_message.size()))
-  {
-    *error= "Minisign trusted-comment signature is invalid";
-    return false;
-  }
   return true;
 }
 
@@ -583,7 +484,7 @@ static bool refresh_repositories(const std::vector<Banquise_repository> &repos,
     return read_trusted_key(&public_key, error, repo.key.c_str()) &&
       fetch(repo.url, MAX_CATALOG_BYTES, &body, error) &&
       fetch(repo.url + ".minisig", MAX_SIGNATURE_BYTES, &signature, error) &&
-      verify_minisign(body, signature, public_key, error) &&
+      banquise_verify_minisign(body, signature, public_key, error) &&
       parse_catalog(body, parsed, error);
   };
   if (!repo_load_entries(repos, &combined, load, error)) return false;

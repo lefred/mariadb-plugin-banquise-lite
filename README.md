@@ -77,8 +77,12 @@ repositories publishing different assets under the same version are distinguishe
 ## Build
 
 Add this directory below MariaDB's `plugin/` source directory (or symlink it),
-then configure the MariaDB build normally. The build requires the libcurl,
-libarchive, and OpenSSL development packages. For example on Debian/Ubuntu:
+then configure the MariaDB build normally. The build requires the libcurl and
+libarchive development packages. OpenSSL is used by default when the MariaDB
+build exposes its OpenSSL EVP API; MariaDB builds using bundled wolfSSL select
+the native wolfCrypt verifier automatically. The backend can be selected
+explicitly with `-DBANQUISE_LITE_CRYPTO_BACKEND=OPENSSL` or `WOLFSSL`.
+For example on Debian/Ubuntu:
 
 ```sh
 sudo apt install libcurl4-openssl-dev libarchive-dev libssl-dev
