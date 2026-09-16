@@ -27,7 +27,21 @@ ELSE()
 ENDIF()
 
 IF(BANQUISE_LITE_USE_WOLFSSL)
-  SET(BANQUISE_LITE_CRYPTO_SOURCE banquise_crypto_wolfssl.cc)
+  # MariaDB's bundled wolfSSL requires the same configuration definitions as
+  # the server targets (notably WOLFSSL_USER_SETTINGS) before wolfcrypt headers
+  # expose the configured algorithms.
+  ADD_DEFINITIONS(${SSL_DEFINES})
+  IF(EXISTS "${CMAKE_BINARY_DIR}/extra/wolfssl/user_settings.h")
+    INCLUDE_DIRECTORIES("${CMAKE_BINARY_DIR}/extra/wolfssl")
+  ENDIF()
+  SET(BANQUISE_LITE_CRYPTO_SOURCES banquise_crypto_wolfssl.cc)
+  IF(EXISTS "${CMAKE_SOURCE_DIR}/extra/wolfssl/wolfssl/wolfcrypt/src/blake2b.c")
+    # MariaDB's bundled wolfSSL configuration does not build BLAKE2b into
+    # libwolfssl, although the catalog signature format requires it.
+    ADD_DEFINITIONS(-DHAVE_BLAKE2 -DHAVE_BLAKE2B)
+    LIST(APPEND BANQUISE_LITE_CRYPTO_SOURCES
+      "${CMAKE_SOURCE_DIR}/extra/wolfssl/wolfssl/wolfcrypt/src/blake2b.c")
+  ENDIF()
   IF(TARGET wolfssl)
     SET(BANQUISE_LITE_CRYPTO_LIBRARY wolfssl)
   ELSEIF(SSL_LIBRARIES)
@@ -37,11 +51,11 @@ IF(BANQUISE_LITE_USE_WOLFSSL)
   ENDIF()
 ELSE()
   FIND_PACKAGE(OpenSSL REQUIRED COMPONENTS Crypto)
-  SET(BANQUISE_LITE_CRYPTO_SOURCE banquise_crypto_openssl.cc)
+  SET(BANQUISE_LITE_CRYPTO_SOURCES banquise_crypto_openssl.cc)
   SET(BANQUISE_LITE_CRYPTO_LIBRARY OpenSSL::Crypto)
 ENDIF()
 
-MYSQL_ADD_PLUGIN(BANQUISE_LITE banquise_lite.cc ${BANQUISE_LITE_CRYPTO_SOURCE}
+MYSQL_ADD_PLUGIN(BANQUISE_LITE banquise_lite.cc ${BANQUISE_LITE_CRYPTO_SOURCES}
   MODULE_ONLY
   RECOMPILE_FOR_EMBEDDED
   LINK_LIBRARIES CURL::libcurl LibArchive::LibArchive ${BANQUISE_LITE_CRYPTO_LIBRARY})
