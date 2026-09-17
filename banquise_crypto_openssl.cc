@@ -7,7 +7,7 @@
 #include <cstring>
 #include <vector>
 
-static std::vector<std::string> text_lines(const std::string &text)
+std::vector<std::string> banquise_text_lines(const std::string &text)
 {
   std::vector<std::string> lines;
   size_t begin= 0;
@@ -24,8 +24,8 @@ static std::vector<std::string> text_lines(const std::string &text)
   return lines;
 }
 
-static bool decode_base64(const std::string &input, size_t expected,
-                          std::vector<unsigned char> *output)
+bool banquise_decode_base64(const std::string &input, size_t expected,
+                            std::vector<unsigned char> *output)
 {
   if (input.empty() || input.size() % 4) return false;
   output->resize(input.size() / 4 * 3);

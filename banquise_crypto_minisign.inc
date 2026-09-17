@@ -4,8 +4,8 @@ bool banquise_verify_minisign(const std::string &message,
                                      std::string *error)
 {
   const std::string trusted_prefix= "trusted comment: ";
-  std::vector<std::string> key_lines= text_lines(public_key_text);
-  std::vector<std::string> sig_lines= text_lines(signature_text);
+  std::vector<std::string> key_lines= banquise_text_lines(public_key_text);
+  std::vector<std::string> sig_lines= banquise_text_lines(signature_text);
   if (key_lines.size() != 2 || sig_lines.size() != 4 ||
       key_lines[0].compare(0, 18, "untrusted comment:") != 0 ||
       sig_lines[0].compare(0, 18, "untrusted comment:") != 0 ||
@@ -15,9 +15,9 @@ bool banquise_verify_minisign(const std::string &message,
     return false;
   }
   std::vector<unsigned char> key_packet, sig_packet, global_signature;
-  if (!decode_base64(key_lines[1], 42, &key_packet) ||
-      !decode_base64(sig_lines[1], 74, &sig_packet) ||
-      !decode_base64(sig_lines[3], 64, &global_signature))
+  if (!banquise_decode_base64(key_lines[1], 42, &key_packet) ||
+      !banquise_decode_base64(sig_lines[1], 74, &sig_packet) ||
+      !banquise_decode_base64(sig_lines[3], 64, &global_signature))
   {
     *error= "Invalid base64 or packet length in Minisign data";
     return false;
