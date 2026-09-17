@@ -478,6 +478,7 @@ static bool refresh_repositories(const std::vector<Banquise_repository> &repos,
                                  std::string *error)
 {
   std::vector<Repo_entry> combined;
+  std::vector<std::string> failures;
   auto load= [](const Banquise_repository &repo, std::vector<Repo_entry> *parsed,
                 std::string *error) {
     std::string body, signature, public_key;
@@ -487,9 +488,15 @@ static bool refresh_repositories(const std::vector<Banquise_repository> &repos,
       banquise_verify_minisign(body, signature, public_key, error) &&
       parse_catalog(body, parsed, error);
   };
-  if (!repo_load_entries(repos, &combined, load, error)) return false;
+  if (!repo_load_entries(repos, &combined, load, error, &failures)) return false;
   std::lock_guard<std::mutex> guard(repo_lock);
   entries.swap(combined);
+  error->clear();
+  for (const std::string &failure : failures)
+  {
+    if (!error->empty()) *error+= "; ";
+    *error+= failure;
+  }
   return true;
 }
 
@@ -910,7 +917,8 @@ static int check_refresh(MYSQL_THD opaque_thd, st_mysql_sys_var *, void *save,
   *static_cast<my_bool *>(save)= 1;
   std::string error;
   if (!refresh(&error)) { set_message("Refresh failed: " + error); return 1; }
-  set_message("Catalog refreshed successfully");
+  set_message(error.empty() ? "Catalog refreshed successfully" :
+              "Catalog refreshed with warnings: " + error);
   return 0;
 }
 
@@ -1086,7 +1094,8 @@ static int lite_init(void *)
         count= entries.size();
       }
       set_message("Initial catalog refresh succeeded: " +
-                  std::to_string(count) + " entries loaded");
+                  std::to_string(count) + " entries loaded" +
+                  (error.empty() ? "" : "; warnings: " + error));
     }
   }
   else

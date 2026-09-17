@@ -150,22 +150,31 @@ static bool repo_read_cnf(const std::string &path,
 template <class Entry, class Loader>
 static bool repo_load_entries(const std::vector<Banquise_repository> &repos,
                               std::vector<Entry> *out, Loader loader,
-                              std::string *error)
+                              std::string *error,
+                              std::vector<std::string> *failures= nullptr)
 {
   std::vector<Entry> combined;
+  bool loaded= false;
   for (const Banquise_repository &repo : repos)
   {
     std::vector<Entry> parsed;
     if (!loader(repo, &parsed, error))
     {
-      *error= "Repository '" + repo.name + "': " + *error;
-      return false;
+      std::string failure= "Repository '" + repo.name + "': " + *error;
+      if (failures) failures->push_back(failure);
+      continue;
     }
+    loaded= true;
     for (Entry &entry : parsed)
     {
       entry.catalog= repo.name;
       combined.push_back(std::move(entry));
     }
+  }
+  if (!loaded)
+  {
+    if (failures && !failures->empty()) *error= (*failures)[0];
+    return false;
   }
   out->swap(combined);
   return true;

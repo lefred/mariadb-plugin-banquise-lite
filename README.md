@@ -57,9 +57,11 @@ compatible plugin with the requested name, specify the repository explicitly.
 NULL and empty repository names are rejected. `CATALOG` identifies the configured
 repository; `REPOSITORY` remains the plugin project's source URL.
 
-All repositories must verify before a refresh replaces the current view. A
-failure keeps the previous view and reports the failing repository in the
-status message. No implicit fallback to another publisher occurs.
+Each repository is refreshed independently. A network, DNS, key, signature, or
+catalog error skips that repository while successful repositories are published.
+If every repository fails, the previous view is kept and the refresh fails. A
+partial refresh succeeds and reports the skipped repositories in the status
+message. No implicit fallback to another publisher occurs.
 
 The server's `--defaults-file`, `--defaults-extra-file`, and `--no-defaults`
 settings are respected. Sections use the exact `[banquise:name]` form regardless
