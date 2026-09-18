@@ -22,10 +22,12 @@ files reached through `!include` or `!includedir`:
 [banquise:community]
 catalog_url=https://example.org/mariadb/catalog.json
 trusted_key_file=/etc/mariadb/banquise/community.pub
+enabled=1
 
 [banquise:internal]
 catalog_url=https://plugins.example.net/catalog.json
 trusted_key_file=/etc/mariadb/banquise/internal.pub
+enabled=0
 ```
 
 Repository names are case-sensitive and may contain letters, digits, dots,
@@ -34,6 +36,11 @@ URL and an absolute path to its own trusted Minisign public key. Keys must be
 root-owned and must not be group- or world-writable. Repeated sections merge in
 file order, with later values overriding earlier ones. Included directories
 are read in filename order; only `.cnf` files are considered.
+
+`enabled` defaults to `1`. Set `enabled=0` to keep a repository configured
+without refreshing it or exposing its entries. Disabled repositories may omit
+or retain their URL and key settings; they become active again after changing
+the value to `1` and refreshing.
 
 Refresh rereads the sections and verifies each catalog with its configured key:
 
@@ -50,9 +57,11 @@ compatible plugin with the requested name, specify the repository explicitly.
 NULL and empty repository names are rejected. `CATALOG` identifies the configured
 repository; `REPOSITORY` remains the plugin project's source URL.
 
-All repositories must verify before a refresh replaces the current view. A
-failure keeps the previous view and reports the failing repository in the
-status message. No implicit fallback to another publisher occurs.
+Each repository is refreshed independently. A network, DNS, key, signature, or
+catalog error skips that repository while successful repositories are published.
+If every repository fails, the previous view is kept and the refresh fails. A
+partial refresh succeeds and reports the skipped repositories in the status
+message. No implicit fallback to another publisher occurs.
 
 The server's `--defaults-file`, `--defaults-extra-file`, and `--no-defaults`
 settings are respected. Sections use the exact `[banquise:name]` form regardless
@@ -70,8 +79,12 @@ repositories publishing different assets under the same version are distinguishe
 ## Build
 
 Add this directory below MariaDB's `plugin/` source directory (or symlink it),
-then configure the MariaDB build normally. The build requires the libcurl,
-libarchive, and OpenSSL development packages. For example on Debian/Ubuntu:
+then configure the MariaDB build normally. The build requires the libcurl and
+libarchive development packages. OpenSSL is used by default when the MariaDB
+build exposes its OpenSSL EVP API; MariaDB builds using bundled wolfSSL select
+the native wolfCrypt verifier automatically. The backend can be selected
+explicitly with `-DBANQUISE_LITE_CRYPTO_BACKEND=OPENSSL` or `WOLFSSL`.
+For example on Debian/Ubuntu:
 
 ```sh
 sudo apt install libcurl4-openssl-dev libarchive-dev libssl-dev
