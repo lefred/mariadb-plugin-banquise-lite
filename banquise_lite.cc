@@ -395,10 +395,13 @@ static bool parse_catalog(const std::string &json,
       return false;
     }
     Repo_entry e;
+    std::string kind, mysql_version;
     if (!json_string_field(obj, len, "name", &e.name, true, error) ||
         !json_string_field(obj, len, "repository", &e.repository, true, error) ||
         !json_string_field(obj, len, "version", &e.version, true, error) ||
-        !json_string_field(obj, len, "mariadb_version", &e.mariadb_version, true, error) ||
+        !json_string_field(obj, len, "mariadb_version", &e.mariadb_version, false, error) ||
+        !json_string_field(obj, len, "mysql_version", &mysql_version, false, error) ||
+        !json_string_field(obj, len, "kind", &kind, false, error) ||
         !json_string_field(obj, len, "architecture", &e.architecture, true, error) ||
         !json_string_field(obj, len, "soname", &e.soname, true, error) ||
         !json_string_field(obj, len, "download_url", &e.download_url, true, error) ||
@@ -419,6 +422,14 @@ static bool parse_catalog(const std::string &json,
         ((e.archive_type == "tar.gz") != !e.archive_member.empty()))
     {
       *error= "Unsafe name, soname, URL, or SHA-256 in catalog entry " + e.name;
+      return false;
+    }
+    if (e.mariadb_version.empty())
+    {
+      // A shared catalog may contain MySQL plugins/components. MariaDB must
+      // ignore those entries rather than rejecting the entire catalog.
+      if (kind == "component" || !mysql_version.empty()) continue;
+      *error= "Catalog entry " + e.name + " has no mariadb_version";
       return false;
     }
     std::transform(e.sha256.begin(), e.sha256.end(), e.sha256.begin(), ::tolower);
